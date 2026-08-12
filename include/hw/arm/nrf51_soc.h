@@ -10,6 +10,7 @@
 #ifndef NRF51_SOC_H
 #define NRF51_SOC_H
 
+#include "qemu/osdep.h"
 #include "hw/core/sysbus.h"
 #include "hw/arm/armv7m.h"
 #include "hw/char/nrf51_uart.h"

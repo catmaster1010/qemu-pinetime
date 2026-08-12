@@ -1,0 +1,26 @@
+CompileFlags:
+  CompilationDatabase: "build"
+  Remove:
+    - -m*
+    - -fno-delete-null-pointer-checks
+    - -fno-allow-store-data-races
+    - -fconserve-stack
+    - -fpatchable-function-entry=*
+    - -ftrivial-auto-var-init=*
+    - -fstrict-flex-arrays=*
+    - -fno-stack-clash-protection
+    - -fcf-protection=*
+    - -fno-jump-tables
+    - -fno-omit-frame-pointer
+    - -mindirect-branch=*
+    - -mfunction-return=*
+    - --param=*
+    - -fno-link-libatomic
+    - -fzero-init-padding-bits=*
+Diagnostics:
+  #Suppress: ["*"]
+  ClangTidy:
+    Remove: ["*"]
+
+Index:
+  Background: Build
