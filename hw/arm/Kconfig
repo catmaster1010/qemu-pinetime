@@ -654,6 +654,19 @@ config NRF51_SOC
     select ARM_V7M
     select UNIMP
 
+config PINETIME
+    bool
+    default y
+    depends on TCG && ARM
+    select NRF52_SOC
+
+config NRF52_SOC
+    bool
+    imply I2C_DEVICES
+    select I2C
+    select ARM_V7M
+    select UNIMP
+
 config EMCRAFT_SF2
     bool
     default y
