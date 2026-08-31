@@ -25,6 +25,8 @@ static void pinetime_init(MachineState *machine){
 
     sysbus_realize(SYS_BUS_DEVICE(&s->nrf52), &error_fatal);
 
+
+    //TODO: check if there is an image already in flash, then boot that instead
     armv7m_load_kernel(s->nrf52.armv7m.cpu, machine->kernel_filename,
                        0, s->nrf52.flash_size);
 }
@@ -39,7 +41,7 @@ static void pinetime_machine_class_init(ObjectClass *oc, const void *data)
 
     mc->no_floppy = 1;
     mc->no_cdrom = 1;
-    //mc->no_parallel = 1;
+    mc->no_parallel = 1;
 
     mc->max_cpus = 1;
     mc->default_cpus = 1;

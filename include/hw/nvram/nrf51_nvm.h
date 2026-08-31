@@ -22,6 +22,7 @@
 #ifndef NRF51_NVM_H
 #define NRF51_NVM_H
 
+#include "qemu/osdep.h"
 #include "hw/core/sysbus.h"
 #include "qom/object.h"
 #define TYPE_NRF51_NVM "nrf51_soc.nvm"

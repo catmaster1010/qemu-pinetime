@@ -6,10 +6,10 @@
 #include "hw/core/sysbus.h"
 #include "hw/arm/armv7m.h"
 #include "qom/object.h"
-
+#include "hw/nvram/nrf52_nvm.h"
 #define TYPE_NRF52_SOC "nrf52-soc" // QOM typename of the Nrf52StateClass
 
-OBJECT_DECLARE_TYPE(NRF52State, NRF52StateClass, NRF52_SOC)
+OBJECT_DECLARE_SIMPLE_TYPE(NRF52State, NRF52_SOC)
 
 struct NRF52State {
     /* Private */
@@ -21,11 +21,11 @@ struct NRF52State {
     /*
     NRF52UARTState uart;
     NRF52RNGState rng;
-    NRF52NVMState nvm;
     NRF52GPIOState gpio;
     NRF52TimerState timer[NRF52_NUM_TIMERS];
     */
 
+    NRF52NVMState nvm;
     MemoryRegion iomem;
     MemoryRegion sram;
     MemoryRegion flash;

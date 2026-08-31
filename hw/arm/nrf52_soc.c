@@ -13,40 +13,62 @@
 #include "hw/arm/nrf52_soc.h"
 #include "hw/arm/nrf52832.h"
 
+#include "hw/core/qdev-clock.h"
+
+
 
 static void nrf52_soc_realize(DeviceState *dev, Error **errp){
 
     NRF52State *s = NRF52_SOC(dev);
-    //MemoryRegion *mr;
+    MemoryRegion *mr;
 
     if (!s->board_memory) {
         error_setg(errp, "memory property was not set");
         return;
     }
-    /*
-     * TODO: I blindly coppied this from nrf51_soc.c, check if this is true
-     * HCLK on this SoC is fixed, so we set up sysclk ourselves and
-     * the board shouldn't connect it.
-     */
+
+
     if (clock_has_source(s->sysclk)) {
         error_setg(errp, "sysclk clock must not be wired up by the board code");
         return;
     }
+
     /* This clock doesn't need migration because it is fixed-frequency */
     clock_set_hz(s->sysclk, NRF52832_HCLK_FRQ);
     qdev_connect_clock_in(DEVICE(&s->armv7m), "cpuclk", s->sysclk);
-    object_property_set_link(OBJECT(&s->armv7m), "memory", OBJECT(&s->container),
-                             &error_abort);
+
 
     memory_region_add_subregion_overlap(&s->container, 0, s->board_memory, -1);
 
 
     object_property_set_link(OBJECT(&s->armv7m), "memory", OBJECT(&s->container),
                              &error_abort);
-    printf("x2");
-    if (!sysbus_realize(SYS_BUS_DEVICE(&s->armv7m), errp)) {  
-        return;  
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->armv7m), errp)) {
+        return;
     }
+
+
+
+    if (!memory_region_init_ram(&s->sram, OBJECT(s), "nrf52.sram", s->sram_size,
+                                errp)) {
+        return;
+    }
+    memory_region_add_subregion(&s->container, NRF52_SRAM_BASE, &s->sram);
+ 
+
+
+    /* NVMC */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->nvm), errp)) {
+        return;
+    }
+    mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->nvm), 0);
+    memory_region_add_subregion_overlap(&s->container, NRF52_NVMC_BASE, mr, 0);
+    mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->nvm), 1);
+    memory_region_add_subregion_overlap(&s->container, NRF52_FICR_BASE, mr, 0);
+    mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->nvm), 2);
+    memory_region_add_subregion_overlap(&s->container, NRF52_UICR_BASE, mr, 0);
+    mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->nvm), 3);
+    memory_region_add_subregion_overlap(&s->container, NRF52_FLASH_BASE, mr, 0);
 
 }
 
@@ -61,6 +83,7 @@ static void nrf52_soc_init(Object *obj) {
                          ARM_CPU_TYPE_NAME("cortex-m4"));
     qdev_prop_set_uint32(DEVICE(&s->armv7m), "num-irq", 37);
 
+    object_initialize_child(obj, "nvm", &s->nvm, TYPE_NRF52_NVM);
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
 
 }
