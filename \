@@ -1,11 +1,12 @@
+#include "glib.h"
 #include "qemu/osdep.h"
-#include "glib-compat.h"
 #include "qapi/error.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "hw/arm/nrf52.h"
 #include "hw/nvram/nrf52_nvm.h"
 #include "hw/core/qdev-properties.h"
+#include "migration/vmstate.h"
 
 
 /* FCIR */
@@ -13,7 +14,6 @@
 // These both are defined at the bottom of the file
 static const uint32_t ficr_content[]; 
 static const int ficr_content_size;
-static inline  void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size);
 
 static uint64_t ficr_read(void *opaque, hwaddr offset, unsigned int size)
 {
@@ -22,7 +22,7 @@ static uint64_t ficr_read(void *opaque, hwaddr offset, unsigned int size)
 }
 
 static void ficr_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+        unsigned int size)
 {
     /* Intentionally do nothing, we are not allowed to write to the FICR flash.
      * As mandated by the NRF52 spec.
@@ -41,7 +41,7 @@ static const MemoryRegionOps ficr_ops = {
 
 /* UICR */
 
-/* UICR can only be written to NRF52_NVMC_N_WRITE times 
+/* UICR can only be written to NVMC_N_WRITE times 
  * before an erase must be preformed
 */
 static int uicr_num_writes; 
@@ -61,7 +61,7 @@ static uint64_t uicr_read(void *opaque, hwaddr offset, unsigned int size)
 }
 
 static void uicr_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+        unsigned int size)
 {
 
     NRF52NVMState *s = NRF52_NVM(opaque);
@@ -70,7 +70,7 @@ static void uicr_write(void *opaque, hwaddr offset, uint64_t value,
     if (s->config & NRF52_NVMC_CONFIG_WEN) {
 
         assert(offset < sizeof(s->uicr_content));
-        assert(uicr_num_writes < NRF52_NVMC_N_WRITE);
+        assert(uicr_num_writes < NVMC_N_WRITE);
         /* NOR Flash only allows bits to be flipped from 1's to 0's on write */
         oldval = s->uicr_content[offset / 4];
         oldval &= value;
@@ -94,7 +94,7 @@ static const MemoryRegionOps uicr_ops = {
 
 
 /* Erase the entire UICR */
-static inline void uicr_erase(NRF52NVMState *s) {
+static void uicr_erase(NRF52NVMState *s) {
     memset(s->uicr_content, 0xFF, sizeof(s->uicr_content));
     uicr_num_writes = 0;
 }
@@ -150,7 +150,7 @@ static uint64_t io_read(void *opaque, hwaddr offset, unsigned int size)
 }
 
 static void io_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+        unsigned int size)
 {
     NRF52NVMState *s = NRF52_NVM(opaque);
 
@@ -166,11 +166,11 @@ static void io_write(void *opaque, hwaddr offset, uint64_t value,
             //TODO :Support Code RAM erasing 
                 
             if (value <= (s->flash_size - NRF52_PAGE_SIZE)) { // FLASH
-                flash_erase(s, value, NRF52_PAGE_SIZE);
-
+                memset(s->storage + value, 0xFF, NRF52_PAGE_SIZE);
+                memory_region_flush_rom_device(&s->flash, value,
+                                               NRF52_PAGE_SIZE);
             } else if (NRF52_UICR_BASE == value) { // UICR
-                /* 
-                 * The UICR is less than a page wide, thus, this operation erases the whole UICR
+                /* The UICR is less than a page wide, thus, this operation erases the whole UICR
                  * However, its probably best to use ERASEUICR to preform the same operation.
                  */
                 uicr_erase(s);
@@ -191,8 +191,9 @@ static void io_write(void *opaque, hwaddr offset, uint64_t value,
     case NRF52_NVMC_ERASEALL:
         if (value == NRF52_NVMC_ERASEALL_ERASE) {
             if (s->config & NRF52_NVMC_CONFIG_EEN) {
-                flash_erase(s, 0, s->flash_size);
-                uicr_erase(s);
+                memset(s->storage, 0xFF, s->flash_size);
+                memory_region_flush_rom_device(&s->flash, 0, s->flash_size);
+                memset(s->uicr_content, 0xFF, sizeof(s->uicr_content));
             } else {
                 qemu_log_mask(LOG_GUEST_ERROR, "%s: Flash not erasable.\n",
                               __func__);
@@ -233,7 +234,7 @@ static uint64_t flash_read(void *opaque, hwaddr offset, unsigned size)
 }
 
 static void flash_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+        unsigned int size)
 {
     NRF52NVMState *s = NRF52_NVM(opaque);
 
@@ -243,33 +244,21 @@ static void flash_write(void *opaque, hwaddr offset, uint64_t value,
         assert(offset + size <= s->flash_size);
 
         /* Mask in-block sub address */
-        hwaddr offset_block = offset & ~(NRF52_BLOCK_SIZE - 1);
-
-        int result = GPOINTER_TO_INT(g_hash_table_lookup(s ->num_flash_writes_hash,
-                                              GUINT_TO_POINTER((guint)offset_block)));
-        if (result >= NRF52_NVMC_N_WRITE) {
-            /* Too many writes without an erase */
-            qemu_log_mask(LOG_GUEST_ERROR,
-                "%s: Flash write 0x%" HWADDR_PRIx" while flash writes exeed N_WRITE.\n",
-                __func__, offset);
-        } else {
-
-            g_hash_table_insert(s->num_flash_writes_hash,
-                            GUINT_TO_POINTER((guint)offset_block),
-                            GINT_TO_POINTER(result+1));
-
-            /* NOR Flash only allows bits to be flipped from 1's to 0's on write */
-            oldval = ldl_le_p(s->storage + offset);
-            oldval &= value;
-            stl_le_p(s->storage + offset, oldval);
-            memory_region_flush_rom_device(&s->flash, offset, size);
+        value &= ~(NRF52_BLOCK_SIZE - 1);
+        if (g_hash_table_lookup(s->num_flash_writes_hash, value) == NULL) {
+        
         }
+        /* NOR Flash only allows bits to be flipped from 1's to 0's on write */
+        oldval = ldl_le_p(s->storage + offset);
+        oldval &= value;
+        stl_le_p(s->storage + offset, oldval);
+
+        memory_region_flush_rom_device(&s->flash, offset, size);
     } else {
         qemu_log_mask(LOG_GUEST_ERROR,
                 "%s: Flash write 0x%" HWADDR_PRIx" while flash not writable.\n",
                 __func__, offset);
     }
-
 }
 
 
@@ -286,16 +275,7 @@ static const MemoryRegionOps flash_ops = {
  * flash_erase(): erase the internal flash 
  *
  * */
-static void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size) {
-    memset(s->storage + offset, 0xFF, size);
-    memory_region_flush_rom_device(&s->flash, 0, size);
 
-    /* Reset the block write counter */
-    hwaddr offset_block = offset & ~(NRF52_BLOCK_SIZE - 1);
-    for ( ; offset_block < offset + size; offset_block += NRF52_BLOCK_SIZE ) {
-        g_hash_table_remove(s->num_flash_writes_hash, GUINT_TO_POINTER((guint)offset_block));
-    }
-}
 
 
 /* Chip init code */
@@ -332,7 +312,8 @@ static void nrf52_nvm_realize(DeviceState *dev, Error **errp)
     sysbus_init_mmio(sbd, &s->flash);
 
     /* FLASH WRITE COUNTER */
-    s->num_flash_writes_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
+    s->num_flash_writes_hash = g_hash_table_new(g_int64_hash, g_int64_equal);
+
 }
 
 static void nrf52_nvm_reset(DeviceState *dev) {
@@ -341,7 +322,6 @@ static void nrf52_nvm_reset(DeviceState *dev) {
     s->config = 0x00;
 
     uicr_reset(s);
-
 }
 
 static const Property nrf52_nvm_properties[] = {
