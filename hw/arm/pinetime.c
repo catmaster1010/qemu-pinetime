@@ -1,6 +1,9 @@
 /*
- * Pinetime machine
+ * Open source Pinetime watch machine
+ * https://pine64.org/documentation/PineTime/
+ *
  */
+
 #include "qemu/osdep.h"
 #include "qemu/typedefs.h"
 #include "qapi/error.h"

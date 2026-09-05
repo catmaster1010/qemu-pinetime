@@ -1,23 +1,23 @@
 /*
- * Nordic Semiconductor nRF52832 SoC
+ * Nordic Semiconductor nRF52832 SoC.
+ * Reference Manual: https://docs.nordicsemi.com/r/bundle/ps_nrf52832/page/nrf52832_ps.html
+ *
+ * If other parts are supported in the future, 
+ * add a sub-class of NRF52SoC for the specific variants
  */
 
-
 #include "qemu/osdep.h"
-#include "qapi/error.h"
 
-#include "hw/core/qdev-clock.h"
 #include "hw/arm/boot.h"
-#include "qemu/units.h"
-#include "hw/core/qdev-properties.h"
-#include "hw/arm/nrf52_soc.h"
 #include "hw/arm/nrf52832.h"
-
+#include "hw/arm/nrf52_soc.h"
+#include "hw/core/qdev-clock.h"
+#include "hw/core/qdev-properties.h"
+#include "qapi/error.h"
 #include "hw/core/qdev-clock.h"
 
-
-
-static void nrf52_soc_realize(DeviceState *dev, Error **errp){
+static void nrf52_soc_realize(DeviceState *dev, Error **errp)
+{
 
     NRF52State *s = NRF52_SOC(dev);
     MemoryRegion *mr;
@@ -26,7 +26,6 @@ static void nrf52_soc_realize(DeviceState *dev, Error **errp){
         error_setg(errp, "memory property was not set");
         return;
     }
-
 
     if (clock_has_source(s->sysclk)) {
         error_setg(errp, "sysclk clock must not be wired up by the board code");
@@ -40,22 +39,17 @@ static void nrf52_soc_realize(DeviceState *dev, Error **errp){
 
     memory_region_add_subregion_overlap(&s->container, 0, s->board_memory, -1);
 
-
-    object_property_set_link(OBJECT(&s->armv7m), "memory", OBJECT(&s->container),
-                             &error_abort);
+    object_property_set_link(OBJECT(&s->armv7m), "memory",
+                             OBJECT(&s->container), &error_abort);
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->armv7m), errp)) {
         return;
     }
-
-
 
     if (!memory_region_init_ram(&s->sram, OBJECT(s), "nrf52.sram", s->sram_size,
                                 errp)) {
         return;
     }
     memory_region_add_subregion(&s->container, NRF52_SRAM_BASE, &s->sram);
- 
-
 
     /* NVMC */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->nvm), errp)) {
@@ -69,10 +63,10 @@ static void nrf52_soc_realize(DeviceState *dev, Error **errp){
     memory_region_add_subregion_overlap(&s->container, NRF52_UICR_BASE, mr, 0);
     mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->nvm), 3);
     memory_region_add_subregion_overlap(&s->container, NRF52_FLASH_BASE, mr, 0);
-
 }
 
-static void nrf52_soc_init(Object *obj) {
+static void nrf52_soc_init(Object *obj)
+{
 
     NRF52State *s = NRF52_SOC(obj);
 
@@ -85,15 +79,14 @@ static void nrf52_soc_init(Object *obj) {
 
     object_initialize_child(obj, "nvm", &s->nvm, TYPE_NRF52_NVM);
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
-
 }
 
 static const Property nrf52_soc_properties[] = {
     DEFINE_PROP_LINK("memory", NRF52State, board_memory, TYPE_MEMORY_REGION,
                      MemoryRegion *),
     DEFINE_PROP_UINT32("sram-size", NRF52State, sram_size, NRF52832_SRAM_SIZE),
-    DEFINE_PROP_UINT32("flash-size", NRF52State, flash_size, NRF52832_FLASH_SIZE)
-};
+    DEFINE_PROP_UINT32("flash-size", NRF52State, flash_size,
+                       NRF52832_FLASH_SIZE)};
 
 static void nrf52_soc_class_init(ObjectClass *klass, const void *data)
 {
@@ -103,17 +96,13 @@ static void nrf52_soc_class_init(ObjectClass *klass, const void *data)
     device_class_set_props(dc, nrf52_soc_properties);
 }
 
-
 static const TypeInfo nrf52_soc_info = {
-    .name          = TYPE_NRF52_SOC,
-    .parent        = TYPE_SYS_BUS_DEVICE,
+    .name = TYPE_NRF52_SOC,
+    .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(NRF52State),
     .instance_init = nrf52_soc_init,
-    .class_init    = nrf52_soc_class_init,
+    .class_init = nrf52_soc_class_init,
 };
 
-static void nrf52_soc_types(void)
-{
-    type_register_static(&nrf52_soc_info);
-}
+static void nrf52_soc_types(void) { type_register_static(&nrf52_soc_info); }
 type_init(nrf52_soc_types)

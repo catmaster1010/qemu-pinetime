@@ -1,5 +1,9 @@
+/*
+ * Nordic Semiconductor nRF52 SoC
+ *
+ */
 #ifndef HW_ARM_NRF52_SOC_H
-#define  HW_ARM_NRF52_SOC_H
+#define HW_ARM_NRF52_SOC_H
 
 #include "qemu/osdep.h"
 

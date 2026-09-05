@@ -1,3 +1,9 @@
+/*
+ * Open source Pinetime watch machine
+ * https://pine64.org/documentation/PineTime/
+ *
+ */
+
 #ifndef PINETIME_H
 #define PINETIME_H
 

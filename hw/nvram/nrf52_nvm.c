@@ -1,19 +1,34 @@
-#include "qemu/osdep.h"
+
+/*
+ * Nordic Semiconductor nRF52 Series SOC Common Defines
+ *
+ * Reference Manual: https://docs.nordicsemi.com/r/bundle/ps_nrf52832/page/nrf52832_ps.html
+ *
+ * Provides an interface to erase and write flash as well as 
+ * interact with FICR and UICR registers. 
+ *
+ * See nRF51 reference manual and product sheet sections:
+ * + Non-Volatile Memory Controller (NVMC)
+ * + Factory Information Configuration Registers (FICR)
+ * + User Information Configuration Registers (UICR)
+ *
+ */
+
+#include "hw/nvram/nrf52_nvm.h"
 #include "glib-compat.h"
+#include "hw/arm/nrf52.h"
+#include "hw/core/qdev-properties.h"
 #include "qapi/error.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
-#include "hw/arm/nrf52.h"
-#include "hw/nvram/nrf52_nvm.h"
-#include "hw/core/qdev-properties.h"
-
+#include "qemu/osdep.h"
 
 /* FCIR */
 
 // These both are defined at the bottom of the file
-static const uint32_t ficr_content[]; 
+static const uint32_t ficr_content[];
 static const int ficr_content_size;
-static inline  void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size);
+static inline void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size);
 
 static uint64_t ficr_read(void *opaque, hwaddr offset, unsigned int size)
 {
@@ -22,34 +37,28 @@ static uint64_t ficr_read(void *opaque, hwaddr offset, unsigned int size)
 }
 
 static void ficr_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+                       unsigned size)
 {
     /* Intentionally do nothing, we are not allowed to write to the FICR flash.
      * As mandated by the NRF52 spec.
-    */
+     */
 }
 
-static const MemoryRegionOps ficr_ops = {
-    .read = ficr_read,
-    .write = ficr_write,
-    .impl.min_access_size = 4,
-    .impl.max_access_size = 4,
-    .endianness = DEVICE_LITTLE_ENDIAN
-};
-
-
+static const MemoryRegionOps ficr_ops = {.read = ficr_read,
+                                         .write = ficr_write,
+                                         .impl.min_access_size = 4,
+                                         .impl.max_access_size = 4,
+                                         .endianness = DEVICE_LITTLE_ENDIAN};
 
 /* UICR */
 
-/* UICR can only be written to NRF52_NVMC_N_WRITE times 
- * before an erase must be preformed
-*/
-static int uicr_num_writes; 
-
 /*
- * If the UICR is dirty, then on reset, the new 
- * value gets coppied into the on chip UICR.
+ * UICR can only be written to NRF52_NVMC_N_WRITE times
+ * before an erase must be preformed
  */
+static int uicr_num_writes;
+
+
 static bool uicr_dirty = false;
 
 static uint64_t uicr_read(void *opaque, hwaddr offset, unsigned int size)
@@ -61,7 +70,7 @@ static uint64_t uicr_read(void *opaque, hwaddr offset, unsigned int size)
 }
 
 static void uicr_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+                       unsigned size)
 {
 
     NRF52NVMState *s = NRF52_NVM(opaque);
@@ -79,35 +88,37 @@ static void uicr_write(void *opaque, hwaddr offset, uint64_t value,
         uicr_num_writes++;
     } else {
         qemu_log_mask(LOG_GUEST_ERROR,
-                "%s: UICR write 0x%" HWADDR_PRIx" while UICR not writable.\n",
-                __func__, offset);
+                      "%s: UICR write 0x%" HWADDR_PRIx
+                      " while UICR not writable.\n",
+                      __func__, offset);
     }
 }
 
-static const MemoryRegionOps uicr_ops = {
-    .read = uicr_read,
-    .write = uicr_write,
-    .impl.min_access_size = 4,
-    .impl.max_access_size = 4,
-    .endianness = DEVICE_LITTLE_ENDIAN
-};
-
+static const MemoryRegionOps uicr_ops = {.read = uicr_read,
+                                         .write = uicr_write,
+                                         .impl.min_access_size = 4,
+                                         .impl.max_access_size = 4,
+                                         .endianness = DEVICE_LITTLE_ENDIAN};
 
 /* Erase the entire UICR */
-static inline void uicr_erase(NRF52NVMState *s) {
+static inline void uicr_erase(NRF52NVMState *s)
+{
     memset(s->uicr_content, 0xFF, sizeof(s->uicr_content));
     uicr_num_writes = 0;
 }
 
-static void uicr_reset(NRF52NVMState *s) {
+static void uicr_reset(NRF52NVMState *s)
+{
     static bool first_reset = true; // is this the first bootup?
-    
-    if (uicr_dirty) { 
+
+    if (uicr_dirty) {
 
         /* If the UICR has been written to before the reset, thus
-         * the new UICR configuration only takes change after a reset 
+         * the new UICR configuration only takes change after a reset
          */
-        //TODO: Handle the new configurations, eg.. PSELRESET, APPROTECT, NFCPINS
+        /*
+         * TODO: Handle the new configurations, 
+         * eg.. PSELRESET, APPROTECT, NFCPINS */
         uicr_dirty = false;
     } else if (first_reset) {
         uicr_erase(s);
@@ -137,20 +148,23 @@ static uint64_t io_read(void *opaque, hwaddr offset, unsigned int size)
     case NRF52_NVMC_ICACHECNF:
         r = s->icachecnf;
         break;
-    // TODO: IHIT and IMISS
     case NRF52_NVMC_IHIT:
-    case NRF52_NVMC_IMISS: 
+    case NRF52_NVMC_IMISS:
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "%s: unimplemented read at  0x%" HWADDR_PRIx "\n",
+                      __func__, offset);
+        break;
     default:
         qemu_log_mask(LOG_GUEST_ERROR,
-                "%s: bad read offset 0x%" HWADDR_PRIx "\n", __func__, offset);
+                      "%s: bad read offset 0x%" HWADDR_PRIx "\n", __func__,
+                      offset);
         break;
     }
 
     return r;
 }
 
-static void io_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+static void io_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
 {
     NRF52NVMState *s = NRF52_NVM(opaque);
 
@@ -163,28 +177,31 @@ static void io_write(void *opaque, hwaddr offset, uint64_t value,
             /* Mask in-page sub address */
             value &= ~(NRF52_PAGE_SIZE - 1);
 
-            //TODO :Support Code RAM erasing 
-                
+            // TODO :Support Code RAM erasing
+
             if (value <= (s->flash_size - NRF52_PAGE_SIZE)) { // FLASH
                 flash_erase(s, value, NRF52_PAGE_SIZE);
 
             } else if (NRF52_UICR_BASE == value) { // UICR
-                /* 
-                 * The UICR is less than a page wide, thus, this operation erases the whole UICR
-                 * However, its probably best to use ERASEUICR to preform the same operation.
+                /*
+                 * The UICR is less than a page wide, thus, this operation
+                 * erases the whole UICR However, its probably best to use
+                 * ERASEUICR to preform the same operation.
                  */
                 uicr_erase(s);
-                 
+
             } else {
                 qemu_log_mask(LOG_GUEST_ERROR,
-            "%s: attempted ERASEPAGE at 0x%" HWADDR_PRIx". Not possible.\n",
-                __func__, offset);
+                              "%s: attempted ERASEPAGE at 0x%" HWADDR_PRIx
+                              ". Not possible.\n",
+                              __func__, offset);
             }
 
         } else {
             qemu_log_mask(LOG_GUEST_ERROR,
-            "%s: ERASEPAGE at 0x%" HWADDR_PRIx" while flash not erasable.\n",
-            __func__, offset);
+                          "%s: ERASEPAGE at 0x%" HWADDR_PRIx
+                          " while flash not erasable.\n",
+                          __func__, offset);
         }
         break;
 
@@ -201,24 +218,24 @@ static void io_write(void *opaque, hwaddr offset, uint64_t value,
         break;
     case NRF52_NVMC_ERASEUICR:
         if (value == NRF52_NVMC_ERASEUICR_ERASE) {
-            uicr_erase(s);   
+            uicr_erase(s);
         }
         break;
 
     default:
         qemu_log_mask(LOG_GUEST_ERROR,
-                "%s: bad write offset 0x%" HWADDR_PRIx "\n", __func__, offset);
+                      "%s: bad write offset 0x%" HWADDR_PRIx "\n", __func__,
+                      offset);
     }
 }
 
 static const MemoryRegionOps io_ops = {
-        .read = io_read,
-        .write = io_write,
-        .impl.min_access_size = 4,
-        .impl.max_access_size = 4,
-        .endianness = DEVICE_LITTLE_ENDIAN,
+    .read = io_read,
+    .write = io_write,
+    .impl.min_access_size = 4,
+    .impl.max_access_size = 4,
+    .endianness = DEVICE_LITTLE_ENDIAN,
 };
-
 
 /* FLASH */
 
@@ -233,7 +250,7 @@ static uint64_t flash_read(void *opaque, hwaddr offset, unsigned size)
 }
 
 static void flash_write(void *opaque, hwaddr offset, uint64_t value,
-        unsigned size)
+                        unsigned size)
 {
     NRF52NVMState *s = NRF52_NVM(opaque);
 
@@ -245,20 +262,23 @@ static void flash_write(void *opaque, hwaddr offset, uint64_t value,
         /* Mask in-block sub address */
         hwaddr offset_block = offset & ~(NRF52_BLOCK_SIZE - 1);
 
-        int result = GPOINTER_TO_INT(g_hash_table_lookup(s ->num_flash_writes_hash,
-                                              GUINT_TO_POINTER((guint)offset_block)));
+        int result = GPOINTER_TO_INT(g_hash_table_lookup(
+            s->num_flash_writes_hash, GUINT_TO_POINTER((guint)offset_block)));
         if (result >= NRF52_NVMC_N_WRITE) {
             /* Too many writes without an erase */
             qemu_log_mask(LOG_GUEST_ERROR,
-                "%s: Flash write 0x%" HWADDR_PRIx" while flash writes exeed N_WRITE.\n",
-                __func__, offset);
+                          "%s: Flash write 0x%" HWADDR_PRIx
+                          " while flash writes exeed N_WRITE.\n",
+                          __func__, offset);
         } else {
 
             g_hash_table_insert(s->num_flash_writes_hash,
-                            GUINT_TO_POINTER((guint)offset_block),
-                            GINT_TO_POINTER(result+1));
+                                GUINT_TO_POINTER((guint)offset_block),
+                                GINT_TO_POINTER(result + 1));
 
-            /* NOR Flash only allows bits to be flipped from 1's to 0's on write */
+            /* 
+             * NOR Flash only allows bits to be flipped from 1's to 0's on write
+             */
             oldval = ldl_le_p(s->storage + offset);
             oldval &= value;
             stl_le_p(s->storage + offset, oldval);
@@ -266,13 +286,11 @@ static void flash_write(void *opaque, hwaddr offset, uint64_t value,
         }
     } else {
         qemu_log_mask(LOG_GUEST_ERROR,
-                "%s: Flash write 0x%" HWADDR_PRIx" while flash not writable.\n",
-                __func__, offset);
+                      "%s: Flash write 0x%" HWADDR_PRIx
+                      " while flash not writable.\n",
+                      __func__, offset);
     }
-
 }
-
-
 
 static const MemoryRegionOps flash_ops = {
     .read = flash_read,
@@ -283,20 +301,21 @@ static const MemoryRegionOps flash_ops = {
 };
 
 /*
- * flash_erase(): erase the internal flash 
+ * flash_erase(): erase the internal flash
  *
  * */
-static void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size) {
+static void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size)
+{
     memset(s->storage + offset, 0xFF, size);
     memory_region_flush_rom_device(&s->flash, 0, size);
 
     /* Reset the block write counter */
     hwaddr offset_block = offset & ~(NRF52_BLOCK_SIZE - 1);
-    for ( ; offset_block < offset + size; offset_block += NRF52_BLOCK_SIZE ) {
-        g_hash_table_remove(s->num_flash_writes_hash, GUINT_TO_POINTER((guint)offset_block));
+    for (; offset_block < offset + size; offset_block += NRF52_BLOCK_SIZE) {
+        g_hash_table_remove(s->num_flash_writes_hash,
+                            GUINT_TO_POINTER((guint)offset_block));
     }
 }
-
 
 /* Chip init code */
 static void nrf52_nvm_init(Object *obj)
@@ -324,7 +343,8 @@ static void nrf52_nvm_realize(DeviceState *dev, Error **errp)
 
     /* FLASH */
     if (!memory_region_init_rom_device(&s->flash, OBJECT(dev), &flash_ops, s,
-                                       "nrf52_soc.flash", s->flash_size, errp)) {
+                                       "nrf52_soc.flash", s->flash_size,
+                                       errp)) {
         return;
     }
 
@@ -335,13 +355,13 @@ static void nrf52_nvm_realize(DeviceState *dev, Error **errp)
     s->num_flash_writes_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
 }
 
-static void nrf52_nvm_reset(DeviceState *dev) {
+static void nrf52_nvm_reset(DeviceState *dev)
+{
     NRF52NVMState *s = NRF52_NVM(dev);
 
     s->config = 0x00;
 
     uicr_reset(s);
-
 }
 
 static const Property nrf52_nvm_properties[] = {
@@ -357,13 +377,11 @@ static void nrf52_nvm_class_init(ObjectClass *klass, const void *data)
     device_class_set_legacy_reset(dc, nrf52_nvm_reset);
 }
 
-static const TypeInfo nrf52_nvm_info = {
-    .name = TYPE_NRF52_NVM,
-    .parent = TYPE_SYS_BUS_DEVICE,
-    .instance_size = sizeof(NRF52NVMState),
-    .instance_init = nrf52_nvm_init,
-    .class_init = nrf52_nvm_class_init
-};
+static const TypeInfo nrf52_nvm_info = {.name = TYPE_NRF52_NVM,
+                                        .parent = TYPE_SYS_BUS_DEVICE,
+                                        .instance_size = sizeof(NRF52NVMState),
+                                        .instance_init = nrf52_nvm_init,
+                                        .class_init = nrf52_nvm_class_init};
 
 static void nrf52_nvm_register_types(void)
 {
@@ -372,47 +390,53 @@ static void nrf52_nvm_register_types(void)
 
 type_init(nrf52_nvm_register_types)
 
-
-static const uint32_t ficr_content[] = {0x55aa55aa, 0x55aa55aa, 0xffffffff, 0xffffffff, 0x00001000, 0x00000080,
-    0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0x00000000, 0xffff0139, 0xd89c5c8c, 0xdf38883b, 0xffffffff,
-    0xffffffff, 0x4c474250, 0x4d043635, 0xaa55aa33, 0xffffff55, 0x02df4e40, 0xed6d9658,
-    0xd8b231e2, 0x4ab9f49a, 0x8fed7e5c, 0x8a07bd99, 0x5323d10c, 0x81ea2f78, 0xffffffff,
-    0xd597b58d, 0xef730557, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0x00052832, 0x41414530, 0x00002000, 0x00000040, 0x00000200,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0x00000006, 0x00000006, 0x00000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x9cabb907, 0x591f56cc,
-    0x3211ffff, 0xffc3b1e5, 0xb8421637, 0xfffbff80, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xaaaaaaaa, 0xaaaaaaaa, 0xaaaaaaaa, 0xaaaaaaaa, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffff1810,
-    0xffff1006, 0xffff483a, 0xffff1810, 0xffff1006, 0xffffffff, 0xc4c0c4f2, 0xfffff0ff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xfffff320,
-    0xfffff343, 0xfffff35d, 0xfffff400, 0xfffff452, 0xfffff37b, 0xffff3fcc, 0xffff3f98,
-    0xffff3f98, 0xffff0012, 0xffff004d, 0xffff3e10, 0xffffffe2, 0xffffff00, 0xffffff14,
-    0xffffff19, 0xffffff50, 0xffffffff, 0xffffffff, 0x25eb275f, 0xa2d5ca6c, 0x71671aaf,
-    0x55c1df34};
+    static const uint32_t ficr_content[] = {
+        0x55aa55aa, 0x55aa55aa, 0xffffffff, 0xffffffff, 0x00001000, 0x00000080,
+        0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x00000000, 0xffff0139,
+        0xd89c5c8c, 0xdf38883b, 0xffffffff, 0xffffffff, 0x4c474250, 0x4d043635,
+        0xaa55aa33, 0xffffff55, 0x02df4e40, 0xed6d9658, 0xd8b231e2, 0x4ab9f49a,
+        0x8fed7e5c, 0x8a07bd99, 0x5323d10c, 0x81ea2f78, 0xffffffff, 0xd597b58d,
+        0xef730557, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x00052832, 0x41414530,
+        0x00002000, 0x00000040, 0x00000200, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x00000006, 0x00000006,
+        0x00000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0x9cabb907, 0x591f56cc, 0x3211ffff, 0xffc3b1e5, 0xb8421637, 0xfffbff80,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xaaaaaaaa, 0xaaaaaaaa,
+        0xaaaaaaaa, 0xaaaaaaaa, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffff1810, 0xffff1006, 0xffff483a, 0xffff1810,
+        0xffff1006, 0xffffffff, 0xc4c0c4f2, 0xfffff0ff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+        0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xfffff320,
+        0xfffff343, 0xfffff35d, 0xfffff400, 0xfffff452, 0xfffff37b, 0xffff3fcc,
+        0xffff3f98, 0xffff3f98, 0xffff0012, 0xffff004d, 0xffff3e10, 0xffffffe2,
+        0xffffff00, 0xffffff14, 0xffffff19, 0xffffff50, 0xffffffff, 0xffffffff,
+        0x25eb275f, 0xa2d5ca6c, 0x71671aaf, 0x55c1df34};
 
 static const int ficr_content_size = sizeof(ficr_content);

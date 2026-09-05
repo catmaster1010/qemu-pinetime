@@ -1,3 +1,14 @@
+
+
+/*
+ * Nordic Semiconductor nRF52832 SOC Common Defines
+ *
+ * The nRF52832 is a chip within the nRF52 series
+ *
+ * Reference Manual: https://docs.nordicsemi.com/r/bundle/ps_nrf52832/page/nrf52832_ps.html
+ *
+ */
+
 #ifndef NRF52832_H
 #define NRF52832_H
 

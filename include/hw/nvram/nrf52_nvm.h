@@ -1,3 +1,10 @@
+/*
+ * Nordic Semiconductor nRF52 non-volatile memory
+ *
+ * It provides an interface to erase regions in flash memory.
+ * Furthermore it provides the user and factory information registers.
+ *
+ */
 #ifndef NRF52_NVM_H
 #define NRF52_NVM_H
 
