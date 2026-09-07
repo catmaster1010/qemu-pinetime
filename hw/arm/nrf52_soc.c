@@ -78,6 +78,7 @@ static void nrf52_soc_init(Object *obj)
     qdev_prop_set_uint32(DEVICE(&s->armv7m), "num-irq", 37);
 
     object_initialize_child(obj, "nvm", &s->nvm, TYPE_NRF52_NVM);
+
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
 }
 
@@ -104,5 +105,8 @@ static const TypeInfo nrf52_soc_info = {
     .class_init = nrf52_soc_class_init,
 };
 
-static void nrf52_soc_types(void) { type_register_static(&nrf52_soc_info); }
+static void nrf52_soc_types(void) 
+{ 
+    type_register_static(&nrf52_soc_info);
+}
 type_init(nrf52_soc_types)

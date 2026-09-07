@@ -77,7 +77,6 @@ static void uicr_write(void *opaque, hwaddr offset, uint64_t value,
     uint32_t oldval;
 
     if (s->config & NRF52_NVMC_CONFIG_WEN) {
-
         assert(offset < sizeof(s->uicr_content));
         assert(uicr_num_writes < NRF52_NVMC_N_WRITE);
         /* NOR Flash only allows bits to be flipped from 1's to 0's on write */
@@ -217,9 +216,13 @@ static void io_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
         }
         break;
     case NRF52_NVMC_ERASEUICR:
-        if (value == NRF52_NVMC_ERASEUICR_ERASE) {
-            uicr_erase(s);
+
+        if (s->config & NRF52_NVMC_CONFIG_EEN) {
+            if (value == NRF52_NVMC_ERASEUICR_ERASE) {
+                uicr_erase(s);
+            }
         }
+
         break;
 
     default:
@@ -307,7 +310,7 @@ static const MemoryRegionOps flash_ops = {
 static void flash_erase(NRF52NVMState *s, hwaddr offset, unsigned size)
 {
     memset(s->storage + offset, 0xFF, size);
-    memory_region_flush_rom_device(&s->flash, 0, size);
+    memory_region_flush_rom_device(&s->flash, offset, size);
 
     /* Reset the block write counter */
     hwaddr offset_block = offset & ~(NRF52_BLOCK_SIZE - 1);
