@@ -8,7 +8,6 @@
 #ifndef NRF52_NVM_H
 #define NRF52_NVM_H
 
-#include "glib.h"
 #include "qemu/osdep.h"
 #include "hw/core/sysbus.h"
 #include "qom/object.h"
