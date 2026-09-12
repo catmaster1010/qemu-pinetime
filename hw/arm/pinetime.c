@@ -21,6 +21,8 @@ static void pinetime_init(MachineState *machine){
     PinetimeMachineState *s = PINETIME_MACHINE(machine);
     MemoryRegion *system_memory = get_system_memory();
 
+    static int first_boot = true; // is this the first boot?
+
     object_initialize_child(OBJECT(machine), "nrf52", &s->nrf52,
                             TYPE_NRF52_SOC);
     object_property_set_link(OBJECT(&s->nrf52), "memory",
@@ -29,9 +31,11 @@ static void pinetime_init(MachineState *machine){
     sysbus_realize(SYS_BUS_DEVICE(&s->nrf52), &error_fatal);
 
 
-    //TODO: check if there is an image already in flash, then boot that instead
-    armv7m_load_kernel(s->nrf52.armv7m.cpu, machine->kernel_filename,
+    if (first_boot == true) {
+        armv7m_load_kernel(s->nrf52.armv7m.cpu, machine->kernel_filename,
                        0, s->nrf52.flash_size);
+        first_boot = false;
+    }
 }
 
 static void pinetime_machine_class_init(ObjectClass *oc, const void *data)

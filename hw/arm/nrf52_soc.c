@@ -80,6 +80,7 @@ static void nrf52_soc_init(Object *obj)
     object_initialize_child(obj, "nvm", &s->nvm, TYPE_NRF52_NVM);
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
+
 }
 
 static const Property nrf52_soc_properties[] = {

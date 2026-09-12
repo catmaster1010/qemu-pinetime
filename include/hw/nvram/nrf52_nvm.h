@@ -71,6 +71,8 @@ struct NRF52NVMState {
     uint32_t icachecnf;
 
     GHashTable *num_flash_writes_hash;
+    bool uicr_dirty;
+
 
 };
 
