@@ -18,9 +18,9 @@ static void test_nrf52_nvm(void) {
     uint32_t value;
 
     qtest_writel(qts, NRF52_NVMC_BASE + NRF52_NVMC_CONFIG, NRF52_NVMC_CONFIG_WEN);
-    qtest_writel(qts, NRF52_UICR_BASE + 0x80,  0xdeadbeef);
+    qtest_writel(qts, NRF52_UICR_BASE | 0x80,  0xdeadbeef);
 
-    value = qtest_readl(qts,  NRF52_UICR_BASE + 0x80);
+    value = qtest_readl(qts,  NRF52_UICR_BASE | 0x80);
 
     g_assert_cmphex(value, ==, 0xdeadbeef);
 
