@@ -12,6 +12,7 @@
  * + Factory Information Configuration Registers (FICR)
  * + User Information Configuration Registers (UICR)
  *
+ * TODO: Migration stuff
  */
 
 #include "hw/nvram/nrf52_nvm.h"

@@ -1,4 +1,26 @@
 ===========
+PINETIME-QEMU README
+===========
+TODO
+=======
+
+nRF51 System-on-Chip
+--------------------
+* [X] NVMC - [catmaster]
+
+  * [ ] Test cases - [sirro & hachi]
+
+* [ ] Timer - [catmaster]
+* [ ] RNG - [sirro] 
+* [ ] GPIO
+* [ ] RADIO - [sirro] 
+* [ ] SWI
+* [ ] SPI
+* [ ] WATCHDOG
+
+Begin qemu README
+
+===========
 QEMU README
 ===========
 

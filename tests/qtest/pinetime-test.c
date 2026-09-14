@@ -1,11 +1,16 @@
 /*
  * QTest testcase for pintetime
  *
+ * Open source Pinetime watch, see:
+ * https://pine64.org/documentation/PineTime/
+ * 
  * Copyright (c) 2026 Goober, Inc.
  *
  * Author: Don't contact me
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * TODO: NVMC tests
  */
 
 #include "qemu/osdep.h"
