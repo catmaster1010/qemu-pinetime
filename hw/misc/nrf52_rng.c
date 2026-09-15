@@ -224,11 +224,16 @@ static void nrf52_rng_reset(DeviceState *dev)
 }
 
 
+/*
+ * Defaults are the nRF52832 production specification RNG timings:
+ * t_RNG,RAW (bias correction disabled) and t_RNG,BC (bias correction
+ * enabled, average).
+ */
 static const Property nrf52_rng_properties[] = {
     DEFINE_PROP_UINT16("period_unfiltered_us", NRF52RNGState,
-            period_unfiltered_us, 167),
+            period_unfiltered_us, 30),
     DEFINE_PROP_UINT16("period_filtered_us", NRF52RNGState,
-            period_filtered_us, 660),
+            period_filtered_us, 120),
 };
 
 static const VMStateDescription vmstate_rng = {
