@@ -40,6 +40,7 @@
 #ifndef NRF52_RNG_H
 #define NRF52_RNG_H
 
+#include "qemu/osdep.h"
 #include "hw/core/sysbus.h"
 #include "qemu/timer.h"
 #include "qom/object.h"
