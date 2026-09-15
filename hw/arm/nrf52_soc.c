@@ -16,6 +16,13 @@
 #include "qapi/error.h"
 #include "hw/core/qdev-clock.h"
 
+/*
+ * Peripheral ID equals the NVIC interrupt number and is encoded in bits
+ * 12 and up of the peripheral base address. The nRF52832 has 38 lines,
+ * so mask to 6 bits rather than the nRF51's 5.
+ */
+#define BASE_TO_IRQ(base) ((base >> 12) & 0x3F)
+
 static void nrf52_soc_realize(DeviceState *dev, Error **errp)
 {
 
@@ -63,6 +70,16 @@ static void nrf52_soc_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion_overlap(&s->container, NRF52_UICR_BASE, mr, 0);
     mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->nvm), 3);
     memory_region_add_subregion_overlap(&s->container, NRF52_FLASH_BASE, mr, 0);
+
+    /* RNG */
+    if (!sysbus_realize(SYS_BUS_DEVICE(&s->rng), errp)) {
+        return;
+    }
+    mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->rng), 0);
+    memory_region_add_subregion_overlap(&s->container, NRF52_RNG_BASE, mr, 0);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->rng), 0,
+                       qdev_get_gpio_in(DEVICE(&s->armv7m),
+                       BASE_TO_IRQ(NRF52_RNG_BASE)));
 }
 
 static void nrf52_soc_init(Object *obj)
@@ -78,6 +95,7 @@ static void nrf52_soc_init(Object *obj)
     qdev_prop_set_uint32(DEVICE(&s->armv7m), "num-irq", 37);
 
     object_initialize_child(obj, "nvm", &s->nvm, TYPE_NRF52_NVM);
+    object_initialize_child(obj, "rng", &s->rng, TYPE_NRF52_RNG);
 
     s->sysclk = qdev_init_clock_in(DEVICE(s), "sysclk", NULL, NULL, 0);
 

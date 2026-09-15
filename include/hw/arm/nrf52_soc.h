@@ -8,6 +8,7 @@
 #include "qemu/osdep.h"
 
 #include "hw/core/sysbus.h"
+#include "hw/misc/nrf52_rng.h"
 #include "hw/arm/armv7m.h"
 #include "qom/object.h"
 #include "hw/nvram/nrf52_nvm.h"
@@ -24,11 +25,13 @@ struct NRF52State {
 
     /*
     NRF52UARTState uart;
-    NRF52RNGState rng;
+
     NRF52GPIOState gpio;
     NRF52TimerState timer[NRF52_NUM_TIMERS];
     */
 
+
+    NRF52RNGState rng;
     NRF52NVMState nvm;
     MemoryRegion iomem;
     MemoryRegion sram;
