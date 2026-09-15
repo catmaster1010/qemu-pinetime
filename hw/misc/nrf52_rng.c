@@ -18,7 +18,7 @@
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "qapi/error.h"
-#include "hw/arm/nrf51.h"
+#include "hw/arm/nrf52.h"
 #include "hw/core/irq.h"
 #include "hw/misc/nrf52_rng.h"
 #include "hw/core/qdev-properties.h"
@@ -94,19 +94,19 @@ static void rng_write(void *opaque, hwaddr offset,
 
     switch (offset) {
     case NRF52_RNG_TASK_START:
-        if (value == NRF51_TRIGGER_TASK) {
+        if (value == NRF52_TRIGGER_TASK) {
             s->active = 1;
             rng_update_timer(s);
         }
         break;
     case NRF52_RNG_TASK_STOP:
-        if (value == NRF51_TRIGGER_TASK) {
+        if (value == NRF52_TRIGGER_TASK) {
             s->active = 0;
             rng_update_timer(s);
         }
         break;
     case NRF52_RNG_EVENT_VALRDY:
-        if (value == NRF51_EVENT_CLEAR) {
+        if (value == NRF52_EVENT_CLEAR) {
             s->event_valrdy = 0;
         }
         break;
@@ -150,7 +150,7 @@ static const MemoryRegionOps rng_ops = {
     .impl.max_access_size = 4
 };
 
-static void nrf51_rng_timer_expire(void *opaque)
+static void nrf52_rng_timer_expire(void *opaque)
 {
     NRF52RNGState *s = NRF52_RNG(opaque);
 
@@ -167,7 +167,7 @@ static void nrf51_rng_timer_expire(void *opaque)
     update_irq(s);
 }
 
-static void nrf51_rng_tep_start(void *opaque, int n, int level)
+static void nrf52_rng_tep_start(void *opaque, int n, int level)
 {
     NRF52RNGState *s = NRF52_RNG(opaque);
 
@@ -177,7 +177,7 @@ static void nrf51_rng_tep_start(void *opaque, int n, int level)
     }
 }
 
-static void nrf51_rng_tep_stop(void *opaque, int n, int level)
+static void nrf52_rng_tep_stop(void *opaque, int n, int level)
 {
     NRF52RNGState *s = NRF52_RNG(opaque);
 
@@ -188,7 +188,7 @@ static void nrf51_rng_tep_stop(void *opaque, int n, int level)
 }
 
 
-static void nrf51_rng_init(Object *obj)
+static void nrf52_rng_init(Object *obj)
 {
     NRF52RNGState *s = NRF52_RNG(obj);
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
@@ -197,19 +197,19 @@ static void nrf51_rng_init(Object *obj)
             TYPE_NRF52_RNG, NRF52_RNG_SIZE);
     sysbus_init_mmio(sbd, &s->mmio);
 
-    timer_init_us(&s->timer, QEMU_CLOCK_VIRTUAL, nrf51_rng_timer_expire, s);
+    timer_init_us(&s->timer, QEMU_CLOCK_VIRTUAL, nrf52_rng_timer_expire, s);
 
     sysbus_init_irq(sbd, &s->irq);
 
     /* Tasks */
-    qdev_init_gpio_in_named(DEVICE(s), nrf51_rng_tep_start, "tep_start", 1);
-    qdev_init_gpio_in_named(DEVICE(s), nrf51_rng_tep_stop, "tep_stop", 1);
+    qdev_init_gpio_in_named(DEVICE(s), nrf52_rng_tep_start, "tep_start", 1);
+    qdev_init_gpio_in_named(DEVICE(s), nrf52_rng_tep_stop, "tep_stop", 1);
 
     /* Events */
     qdev_init_gpio_out_named(DEVICE(s), &s->eep_valrdy, "eep_valrdy", 1);
 }
 
-static void nrf51_rng_reset(DeviceState *dev)
+static void nrf52_rng_reset(DeviceState *dev)
 {
     NRF52RNGState *s = NRF52_RNG(dev);
 
@@ -224,7 +224,7 @@ static void nrf51_rng_reset(DeviceState *dev)
 }
 
 
-static const Property nrf51_rng_properties[] = {
+static const Property nrf52_rng_properties[] = {
     DEFINE_PROP_UINT16("period_unfiltered_us", NRF52RNGState,
             period_unfiltered_us, 167),
     DEFINE_PROP_UINT16("period_filtered_us", NRF52RNGState,
@@ -232,7 +232,7 @@ static const Property nrf51_rng_properties[] = {
 };
 
 static const VMStateDescription vmstate_rng = {
-    .name = "nrf51_soc.rng",
+    .name = "nrf52_soc.rng",
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (const VMStateField[]) {
@@ -245,26 +245,26 @@ static const VMStateDescription vmstate_rng = {
     }
 };
 
-static void nrf51_rng_class_init(ObjectClass *klass, const void *data)
+static void nrf52_rng_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
-    device_class_set_props(dc, nrf51_rng_properties);
+    device_class_set_props(dc, nrf52_rng_properties);
     dc->vmsd = &vmstate_rng;
-    device_class_set_legacy_reset(dc, nrf51_rng_reset);
+    device_class_set_legacy_reset(dc, nrf52_rng_reset);
 }
 
-static const TypeInfo nrf51_rng_info = {
+static const TypeInfo nrf52_rng_info = {
     .name = TYPE_NRF52_RNG,
     .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(NRF52RNGState),
-    .instance_init = nrf51_rng_init,
-    .class_init = nrf51_rng_class_init
+    .instance_init = nrf52_rng_init,
+    .class_init = nrf52_rng_class_init
 };
 
-static void nrf51_rng_register_types(void)
+static void nrf52_rng_register_types(void)
 {
-    type_register_static(&nrf51_rng_info);
+    type_register_static(&nrf52_rng_info);
 }
 
-type_init(nrf51_rng_register_types)
+type_init(nrf52_rng_register_types)
