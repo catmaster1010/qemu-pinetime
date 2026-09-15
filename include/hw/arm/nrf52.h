@@ -15,6 +15,7 @@
 
 
 #define NRF52_SRAM_BASE       0x20000000
+#define NRF52_RNG_BASE        0x4000D000
 
 #define NRF52_NVMC_BASE       0x4001E000
 
@@ -23,5 +24,10 @@
 #define NRF52_PAGE_SIZE       0x1000
 #define NRF52_BLOCK_SIZE      0x200
 
+/* Trigger */
+#define NRF52_TRIGGER_TASK 0x01
+
+/* Events */
+#define NRF52_EVENT_CLEAR  0x00
 
 #endif
