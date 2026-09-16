@@ -16,6 +16,8 @@
 
 OBJECT_DECLARE_SIMPLE_TYPE(NRF52State, NRF52_SOC)
 
+#define NRF51_NUM_TIMERS 5
+
 struct NRF52State {
     /* Private */
     SysBusDevice parent_obj;

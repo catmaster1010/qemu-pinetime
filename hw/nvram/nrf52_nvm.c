@@ -370,6 +370,7 @@ static void nrf52_nvm_reset_hold(Object *obj, ResetType type)
     NRF52NVMState *s = NRF52_NVM(obj);
     uicr_reset(s);
 }
+
 static const Property nrf52_nvm_properties[] = {
     DEFINE_PROP_UINT32("flash-size", NRF52NVMState, flash_size, 0x40000),
 };

@@ -209,9 +209,9 @@ static void nrf52_rng_init(Object *obj)
     qdev_init_gpio_out_named(DEVICE(s), &s->eep_valrdy, "eep_valrdy", 1);
 }
 
-static void nrf52_rng_reset(DeviceState *dev)
+static void nrf52_rng_reset_hold(Object *obj, ResetType type) 
 {
-    NRF52RNGState *s = NRF52_RNG(dev);
+    NRF52RNGState *s = NRF52_RNG(obj);
 
     s->value = 0;
     s->active = 0;
@@ -253,10 +253,11 @@ static const VMStateDescription vmstate_rng = {
 static void nrf52_rng_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
+    ResettableClass *rc = RESETTABLE_CLASS(klass);
 
     device_class_set_props(dc, nrf52_rng_properties);
     dc->vmsd = &vmstate_rng;
-    device_class_set_legacy_reset(dc, nrf52_rng_reset);
+    rc->phases.hold = nrf52_rng_reset_hold;
 }
 
 static const TypeInfo nrf52_rng_info = {

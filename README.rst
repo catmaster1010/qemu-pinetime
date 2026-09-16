@@ -7,11 +7,12 @@ TODO
 nRF51 System-on-Chip
 --------------------
 * [X] NVMC - [catmaster]
-
+  * [ ] Migration - [catmaster]
   * [ ] Test cases - [sirro & hachi]
 
 * [ ] Timer - [catmaster]
-* [ ] RNG - [sirro] 
+* [X] RNG - [sirro] 
+  * [X] Test cases -[sirro]
 * [ ] GPIO
 * [ ] RADIO - [sirro] 
 * [ ] SWI
