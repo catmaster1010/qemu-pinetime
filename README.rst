@@ -4,15 +4,15 @@ PINETIME-QEMU README
 TODO
 =======
 
-nRF51 System-on-Chip
+nRF52 System-on-Chip
 --------------------
 * [X] NVMC - [catmaster]
-  * [ ] Migration - [catmaster]
-  * [ ] Test cases - [sirro & hachi]
+ * [ ] Migration - [catmaster]
+ * [ ] Test cases - [sirro & hachi]
 
 * [ ] Timer - [catmaster]
 * [X] RNG - [sirro] 
-  * [X] Test cases -[sirro]
+ * [X] Test cases -[sirro]
 * [ ] GPIO
 * [ ] RADIO - [sirro] 
 * [ ] SWI
