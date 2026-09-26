@@ -52,11 +52,19 @@ static void nrf52_soc_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-    if (!memory_region_init_ram(&s->sram, OBJECT(s), "nrf52.sram", s->sram_size,
+
+    // TODO: Make ram nonvolatile 
+    if (!memory_region_init_ram(&s->sram_data, OBJECT(s), "nrf52.sram.data", s->sram_size,
                                 errp)) {
         return;
     }
-    memory_region_add_subregion(&s->container, NRF52_SRAM_BASE, &s->sram);
+    memory_region_add_subregion(&s->container, NRF52_SRAM_DATA_BASE, &s->sram_data);
+
+    memory_region_init_alias(&s->sram_code, OBJECT(s), "nrf52.sram.code",  
+                         &s->sram_data, 0, s->sram_size);  
+
+    memory_region_add_subregion_overlap(&s->container,  NRF52_SRAM_CODE_BASE,
+                                    &s->sram_code, 1);
 
     /* NVMC */
     if (!sysbus_realize(SYS_BUS_DEVICE(&s->nvm), errp)) {

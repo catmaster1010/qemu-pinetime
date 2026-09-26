@@ -36,7 +36,8 @@ struct NRF52State {
     NRF52RNGState rng;
     NRF52NVMState nvm;
     MemoryRegion iomem;
-    MemoryRegion sram;
+    MemoryRegion sram_data;
+    MemoryRegion sram_code;
     MemoryRegion flash;
     MemoryRegion clock;
     MemoryRegion twi;
