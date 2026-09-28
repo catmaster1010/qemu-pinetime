@@ -52,8 +52,6 @@ static void nrf52_soc_realize(DeviceState *dev, Error **errp)
         return;
     }
 
-
-    // TODO: Make ram nonvolatile 
     if (!memory_region_init_ram(&s->sram_data, OBJECT(s), "nrf52.sram.data", s->sram_size,
                                 errp)) {
         return;
