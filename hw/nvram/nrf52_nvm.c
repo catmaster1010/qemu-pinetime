@@ -23,6 +23,8 @@
 #include "qemu/log.h"
 #include "qemu/module.h"
 #include "qemu/osdep.h"
+#include "hw/arm/nrf52832.h"
+#include "hw/arm/nrf52_soc.h"
 
 /* FCIR */
 
@@ -175,7 +177,6 @@ static void io_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
             /* Mask in-page sub address */
             value &= ~(NRF52_PAGE_SIZE - 1);
 
-            // TODO :Support Code RAM erasing
 
             if (value <= (s->flash_size - NRF52_PAGE_SIZE)) { // FLASH
                 flash_erase(s, value, NRF52_PAGE_SIZE);
@@ -372,7 +373,7 @@ static void nrf52_nvm_reset_hold(Object *obj, ResetType type)
 }
 
 static const Property nrf52_nvm_properties[] = {
-    DEFINE_PROP_UINT32("flash-size", NRF52NVMState, flash_size, 0x40000),
+    DEFINE_PROP_UINT32("flash-size", NRF52NVMState, flash_size, NRF52832_FLASH_SIZE),
 };
 
 static void nrf52_nvm_class_init(ObjectClass *klass, const void *data)
